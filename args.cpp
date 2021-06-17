@@ -43,7 +43,11 @@ Args & Args::operator=(Args const & rhs) {
 }
 
 Args::Args(Args const & src) {
-
+	_password = src.getPassword();
+	_port = src.getPort();
+	_networkHost = src.getNetworkHost();;
+	_networkPort = src.getNetworkPort();
+	_networkPassword = src.getNetworkPassword();
 }
 
 std::string const & Args::getPassword() const {return _password;}

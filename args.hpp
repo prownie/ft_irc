@@ -1,3 +1,5 @@
+#ifndef ARGS_HPP
+#define ARGS_HPP
 #include <exception>
 #include <iostream>
 #include <string>
@@ -41,3 +43,5 @@ public:
 };
 
 std::ostream & operator<<(std::ostream& o, Args const & b);
+
+#endif
