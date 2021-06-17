@@ -66,6 +66,7 @@ void	ircServer::run() {
 					if ((new_fd = accept(_pollfds[0].fd, (struct sockaddr *) &client_saddr, &addrlen)) == -1)
 						std::cerr << "Accept failed" << std::endl;
 					std::cout << "New connection accepted on fd[" << new_fd << "]" << std::endl;
+					_userList.insert(std::pair<int, User>(new_fd, User()));
 					(_pollfds + _nb_fds)->fd = new_fd;
 					(_pollfds + _nb_fds)->events = POLLIN;
 					(_pollfds + _nb_fds)->revents = 0;
@@ -129,14 +130,41 @@ int	ircServer::whichCommand(std::string & request) {
 }
 
 void ircServer::passCommand(std::string & request, int fd) {
+	std::string str = request.substr(request.find_first_of(" \t") + 1);
 
+	std::map<int, User>::iterator it = _userList.find(fd);
+	it->second.setTmpPwd(str);
+	// if (str != _args.getPassword())
+	// {
+	// 	char *buf = ":irc.example.com 464 chris :Password Incorrect";
+	// 	send(fd,buf,strlen(buf),0);
+	// 	std::cout << "sent" << std::endl;
+	// }
 }
 
 void ircServer::nickCommand(std::string & request, int fd) {
+	std::string str = request.substr(request.find_first_of(" \t") + 1);
 
+	std::map<int, User>::iterator it = _userList.find(fd);
+	it->second.setNickname(str);
 }
 
 void ircServer::userCommand(std::string & request, int fd) {
+	std::string str = request.substr(request.find_first_of(" \t") + 1);
+
+	std::map<int, User>::iterator it = _userList.find(fd);
+	if (!it->second.getUsername().empty() && !it->second.getRealName().empty())
+	{
+		std::string rep(":ft_irc.com 462");
+		rep += " ";
+		rep += it->second.getNickname();
+		rep += " :You may not reregister";
+		send(fd, rep.c_str(), rep.length(), 0);
+	}
+
+	it->second.setUsername(str.substr(0, str.find_first_of(" \t")));
+	it->second.setRealname(str.substr(str.find_last_of(":")));
+
 
 }
 
