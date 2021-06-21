@@ -22,6 +22,7 @@ public:
 	void	setNickname(std::string nickname);
 	void	setUsername(std::string username);
 	void	setRealname(std::string realname);
+	std::string getTmpPwd() const;
 	std::string getUsername() const;
 	std::string getRealName() const;
 	std::string getNickname() const;

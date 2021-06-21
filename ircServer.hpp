@@ -40,5 +40,6 @@ public:
 	void 	operCommand(std::string & request, int fd);
 	void 	quitCommand(std::string & request, int fd);
 	void 	privmsgCommand(std::string & request, int fd);
+	int		checkPassword(User user);
 };
 #endif

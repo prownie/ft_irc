@@ -87,6 +87,7 @@ void	ircServer::run() {
 						std::cout << "SOME DATA HAS BEEN RECEVEID, YOUH:\n" << buf << std::endl;
 						std::string data(buf);
 						processRequest(data, (_pollfds + fd)->fd);
+						std::cout << "AFtER  REQ PROCESSING" << std::endl;
 					}
 				}
 			}
@@ -133,6 +134,9 @@ void ircServer::passCommand(std::string & request, int fd) {
 	std::string str = request.substr(request.find_first_of(" \t") + 1);
 
 	std::map<int, User>::iterator it = _userList.find(fd);
+	//it->second.setTmpPwd(str);
+	str.erase( std::remove(str.begin(), str.end(), '\r'), str.end() );
+	str.erase( std::remove(str.begin(), str.end(), '\n'), str.end() );
 	it->second.setTmpPwd(str);
 	// if (str != _args.getPassword())
 	// {
@@ -160,12 +164,18 @@ void ircServer::userCommand(std::string & request, int fd) {
 		rep += it->second.getNickname();
 		rep += " :You may not reregister";
 		send(fd, rep.c_str(), rep.length(), 0);
+		std::cout << "I SEnt SOME DAtAAAAS" << std::endl;
 	}
-
 	it->second.setUsername(str.substr(0, str.find_first_of(" \t")));
 	it->second.setRealname(str.substr(str.find_last_of(":")));
 
+	if (checkPassword(it->second) != 1)
+	{
+		std::string rep("ERROR :Access denied: Bad password?\n");
+		send(fd, rep.c_str(), rep.length(), 0);
 
+		std::cout << "I SEnt SOME DAtAAAAS" << std::endl;
+	}
 }
 
 void ircServer::joinCommand(std::string & request, int fd) {
@@ -182,4 +192,14 @@ void ircServer::quitCommand(std::string & request, int fd) {
 
 void ircServer::privmsgCommand(std::string & request, int fd) {
 
+}
+
+int	ircServer::checkPassword(User user){
+	if (user.getTmpPwd() != _args.getPassword())
+	{
+		std::cout << "user pwd = |" << user.getTmpPwd() << "| server pwd = |"
+			<< _args.getPassword() << "|" << std::endl;
+		return false;
+	}
+	return true;
 }
