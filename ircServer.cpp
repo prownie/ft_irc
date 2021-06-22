@@ -196,7 +196,9 @@ void ircServer::userCommand(std::string & request, int fd) {
 }
 
 void ircServer::joinCommand(std::string & request, int fd) {
+	std::string str = request.substr(request.find_first_of(" \t") + 1);
 
+	std::map<std::string, std::vector<int>>::iterator it = _channels.find()
 }
 
 void ircServer::operCommand(std::string & request, int fd) {

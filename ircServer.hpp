@@ -11,6 +11,7 @@
 #include <sstream>
 #include <map>
 #include "user.hpp"
+#include <cstring>
 
 #define MAX_FDS 1000
 #define DATA_BUFFER 10000
@@ -24,6 +25,7 @@ private:
 	struct pollfd _pollfds[MAX_FDS];
 	int	_nb_fds;
 	std::map<int, User> _userList;
+	std::map<std::string, std::vector<int>> _channels;
 public:
 	ircServer(Args args);
 	ircServer(ircServer const & src);
