@@ -86,7 +86,8 @@ void	ircServer::run() {
 					else {
 						std::cout << "SOME DATA HAS BEEN RECEVEID, YOUH:\n" << buf << std::endl;
 						std::string data(buf);
-						processRequest(data, (_pollfds + fd)->fd);
+						parseRequest(data, (_pollfds + fd)->fd);
+						memset(buf, 0, DATA_BUFFER);
 						std::cout << "AFtER  REQ PROCESSING" << std::endl;
 					}
 				}
@@ -96,6 +97,7 @@ void	ircServer::run() {
 }
 
 void	ircServer::processRequest(std::string & request, int fd) {
+
 	if (whichCommand(request) > -1) {
 		std::cout << "It is a command" << std::endl;
 		void		(ircServer::*ptr[])(std::string &, int) = {
@@ -112,6 +114,10 @@ void	ircServer::processRequest(std::string & request, int fd) {
 	else {
 		std::cout << "it is not a command wesh" << std::endl;
 	}
+	/*for (int i = 0; i < request.length(); i++)
+	{
+		std::cout << "value char [" << i << "] = " << (int)request[i] << std::endl;
+	}*/
 }
 
 int	ircServer::whichCommand(std::string & request) {
@@ -135,7 +141,6 @@ void ircServer::passCommand(std::string & request, int fd) {
 
 	std::map<int, User>::iterator it = _userList.find(fd);
 	//it->second.setTmpPwd(str);
-	str.erase( std::remove(str.begin(), str.end(), '\r'), str.end() );
 	str.erase( std::remove(str.begin(), str.end(), '\n'), str.end() );
 	it->second.setTmpPwd(str);
 	// if (str != _args.getPassword())
@@ -159,10 +164,11 @@ void ircServer::userCommand(std::string & request, int fd) {
 	std::map<int, User>::iterator it = _userList.find(fd);
 	if (!it->second.getUsername().empty() && !it->second.getRealName().empty())
 	{
+
 		std::string rep(":ft_irc.com 462");
 		rep += " ";
 		rep += it->second.getNickname();
-		rep += " :You may not reregister";
+		rep += " :Connection already registered";
 		send(fd, rep.c_str(), rep.length(), 0);
 		std::cout << "I SEnt SOME DAtAAAAS" << std::endl;
 	}
@@ -173,8 +179,6 @@ void ircServer::userCommand(std::string & request, int fd) {
 	{
 		std::string rep("ERROR :Access denied: Bad password?\n");
 		send(fd, rep.c_str(), rep.length(), 0);
-
-		std::cout << "I SEnt SOME DAtAAAAS" << std::endl;
 	}
 }
 
@@ -202,4 +206,25 @@ int	ircServer::checkPassword(User user){
 		return false;
 	}
 	return true;
+}
+
+void	ircServer::parseRequest(std::string request, int fd){
+	std::string parse;
+	std::map<int, User>::iterator it = _userList.find(fd);
+
+	request.erase(std::remove(request.begin(), request.end(), '\r'), request.end()); //erase \r, to work with netcat or irc client
+	while (!request.empty())
+	{
+		if (request.find('\n') == std::string::npos) {// no \n found, incomplete request, add to user
+			it->second.appendTmpRequest(request);
+			break;
+		}
+		else { //\n found, but maybe more than 1, check User._tmpRequest to append with it
+			parse = it->second.getTmpRequest().append(request.substr(0, request.find_first_of("\n")));
+			it->second.cleanTmpRequest(); //request is complete, we can clean tmpReq;
+			std::cout << "PARSED REQUEST IN PARSEREQUEST : |" << parse << "|" << std::endl;
+			processRequest(parse, fd);
+		}
+		request = request.substr(request.find_first_of("\n") + 1);
+	}
 }

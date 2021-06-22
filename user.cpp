@@ -19,7 +19,10 @@ void	User::setTmpPwd(std::string tmpPwd) {_tmpPassword = tmpPwd;}
 void	User::setNickname(std::string nickname) {_nickname = nickname;}
 void	User::setUsername(std::string username) {_username = username;}
 void	User::setRealname(std::string realname) {_realname = realname;}
+void	User::appendTmpRequest(std::string request) {_tmpRequest.append(request);}
 std::string User::getUsername() const {return _username;}
 std::string User::getRealName() const {return _realname;}
 std::string User::getNickname() const {return _nickname;}
 std::string User::getTmpPwd() const {return _tmpPassword;}
+std::string User::getTmpRequest() const {return _tmpRequest;}
+void		User::cleanTmpRequest(){_tmpRequest.clear();}

@@ -12,6 +12,7 @@ private:
 	std::string	_username;
 	std::string _realname;
 	std::string _tmpPassword;
+	std::string _tmpRequest;
 public:
 	~User();
 	User();
@@ -22,10 +23,13 @@ public:
 	void	setNickname(std::string nickname);
 	void	setUsername(std::string username);
 	void	setRealname(std::string realname);
+	void	appendTmpRequest(std::string request);
 	std::string getTmpPwd() const;
 	std::string getUsername() const;
 	std::string getRealName() const;
 	std::string getNickname() const;
+	std::string getTmpRequest() const ;
+	void	cleanTmpRequest();
 };
 
 #endif
