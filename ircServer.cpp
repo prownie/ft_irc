@@ -79,6 +79,7 @@ void	ircServer::run() {
 						std::cerr << "Recv failed" << std::endl;
 					else if (ret_val == 0) {
 						std::cout << "Connection on fd[" << (_pollfds + fd)->fd << "] closed by client" << std::endl;
+						_userList.erase((_pollfds + fd)->fd);
 						if (close((_pollfds + fd)->fd) == -1)
 							std::cerr << "Client close failed" << std::endl;
 						(_pollfds + fd)->fd *= -1;
@@ -127,7 +128,6 @@ int	ircServer::whichCommand(std::string & request) {
 	std::vector<std::string>::iterator it;
 
 	iss >> firstWord;
-	std::cout << "test word = " << firstWord << "new request = " << request << std::endl;
 	std::vector<std::string> commandList(arr, arr + sizeof(arr)/sizeof(arr[0]));
 	if (find(commandList.begin(), commandList.end(), firstWord) != commandList.end())
 		for (int i = 0; i < commandList.size() - 1; i++)
@@ -162,24 +162,37 @@ void ircServer::userCommand(std::string & request, int fd) {
 	std::string str = request.substr(request.find_first_of(" \t") + 1);
 
 	std::map<int, User>::iterator it = _userList.find(fd);
+	std::cout << "username empty = |" << !it->second.getUsername().empty() << "|, realname = |" << !it->second.getRealName().empty() << "|" << std::endl;
+	if (checkPassword(it->second) != 1) // BAD PASSWORD
+	{
+		std::string rep("ERROR :Access denied: Bad password?\n");
+		send(fd, rep.c_str(), rep.length(), 0);
+		return;
+	}
 	if (!it->second.getUsername().empty() && !it->second.getRealName().empty())
 	{
-
 		std::string rep(":ft_irc.com 462");
 		rep += " ";
 		rep += it->second.getNickname();
 		rep += " :Connection already registered";
 		send(fd, rep.c_str(), rep.length(), 0);
-		std::cout << "I SEnt SOME DAtAAAAS" << std::endl;
+		std::cout << "Client already registered" << std::endl;
+		return;
+	}
+	if ( (std::count(str.begin(), str.end(), ':') != 1) || (std::count(str.begin(), str.begin() + str.find_first_of(':'), ' ') != 3 ) )
+	{
+		std::string rep(":ft_irc.com 461");
+		rep += " ";
+		rep += it->second.getNickname();
+		rep += "USER :Syntax error";
+		send(fd, rep.c_str(), rep.length(), 0);
+		std::cout << "USER :Syntax error" << std::endl;
+		return;
 	}
 	it->second.setUsername(str.substr(0, str.find_first_of(" \t")));
 	it->second.setRealname(str.substr(str.find_last_of(":")));
 
-	if (checkPassword(it->second) != 1)
-	{
-		std::string rep("ERROR :Access denied: Bad password?\n");
-		send(fd, rep.c_str(), rep.length(), 0);
-	}
+
 }
 
 void ircServer::joinCommand(std::string & request, int fd) {
