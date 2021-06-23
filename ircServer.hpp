@@ -15,7 +15,7 @@
 
 #define MAX_FDS 1000
 #define DATA_BUFFER 10000
-
+#define SERVER_NAME "ft_irc.com"
 class ircServer
 {
 private:
@@ -25,7 +25,8 @@ private:
 	struct pollfd _pollfds[MAX_FDS];
 	int	_nb_fds;
 	std::map<int, User> _userList;
-	std::map<std::string, std::vector<int>> _channels;
+	//_channels map = <name,pair<user_list, password
+	std::map<std::string, std::pair<std::vector<int>, std::string> > _channels;
 public:
 	ircServer(Args args);
 	ircServer(ircServer const & src);
@@ -35,6 +36,14 @@ public:
 	void	run();
 	void	processRequest(std::string & request, int fd);
 	int		whichCommand(std::string & request);
+	int		checkPassword(User user);
+	void	parseRequest(std::string request, int fd);
+	void	send_to_fd(std::string code, std::string message, User const & user,
+			int fd, bool dispRealName);
+	void	joinMsgChat(User user, std::string channel, int fd, std::string command) const;
+	std::string	getNbUsers() const;
+	std::string	getNbChannels() const;
+	/* Command functions*/
 	void 	passCommand(std::string & request, int fd);
 	void 	nickCommand(std::string & request, int fd);
 	void 	userCommand(std::string & request, int fd);
@@ -42,7 +51,9 @@ public:
 	void 	operCommand(std::string & request, int fd);
 	void 	quitCommand(std::string & request, int fd);
 	void 	privmsgCommand(std::string & request, int fd);
-	int		checkPassword(User user);
-	void	parseRequest(std::string request, int fd);
+	void 	lusersCommand(std::string & request, int fd);
+	void 	motdCommand(std::string & request, int fd);
 };
 #endif
+
+/*  /connect 127.0.0.1/8002 -password=bla    */
