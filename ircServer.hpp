@@ -45,7 +45,7 @@ public:
 			int fd, bool dispRealName);
 	void	joinMsgChat(User const & user, std::string channel, int fd, std::string command, std::string message);
 	int		check_unregistered(int fd);
-	void	checkRegistration(int fd);
+	int		checkRegistration(int fd);
 	std::string	getNbUsers() const;
 	std::string	getNbChannels() const;
 	void	close_fd(int fd);

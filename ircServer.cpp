@@ -182,18 +182,29 @@ void ircServer::nickCommand(std::string & request, int fd) {
 		send_to_fd("461", "NICK :Syntax error", _userList[fd], fd, false);
 		return;
 	}
-	std::map<int, User>::iterator it = _userList.find(fd);
-	it->second.setNickname(str);
-
+	for (std::map<int, User>::iterator it = _userList.begin(); it != _userList.end(); it++)
+		if (it->second.getNickname().compare(oneWord) == 0) { // already same nickname
+			send_to_fd("462", " :Nickname is already in use", it->second, fd, false);
+			return;
+		}
+	_userList[fd].setNickname(oneWord);
+	std::cout << "nickname = " << _userList[fd].getNickname() << ", username = " << _userList[fd].getUsername() << std::endl;
 	if (_userList[fd].getNickname().compare("*") != 0 && !(_userList[fd].getUsername().empty()))
-		checkRegistration(fd);
+		if (!checkRegistration(fd))
+		{
+			std::string rep("ERROR :Access denied: Bad password?\n");
+			send(fd, rep.c_str(), rep.length(), 0);
+			close_fd(fd);
+			return;
+		}
 }
 
 void ircServer::userCommand(std::string & request, int fd) {
 	std::string str = request.substr(strlen("USER"));
 	std::stringstream 	stream(str);
-	std::string		oneWord;
+	std::string		oneWord, firstword;;
 	unsigned int	countParams = 0;
+	if (stream >> firstword) ++countParams;
 	while(stream >> oneWord) { ++countParams;}
 
 	/*bad user syntax, doesnt respect  <username> * * <realname> */
@@ -202,24 +213,24 @@ void ircServer::userCommand(std::string & request, int fd) {
 		return;
 	}
 	std::map<int, User>::iterator it = _userList.find(fd);
-	if (_userList[fd].getNickname().compare("*") != 0 && checkPassword(it->second) != 1) // BAD PASSWORD
-	{
-		std::string rep("ERROR :Access denied: Bad password?\n");
-		send(fd, rep.c_str(), rep.length(), 0);
-		close_fd(fd);
-		return;
-	}
 	if (_userList[fd].getNickname().compare("*") != 0 && !it->second.getRealName().empty())
 	{
 		send_to_fd("462", ":Connection already registered", it->second, fd, false);
 		return;
 	}
-
-	it->second.setUsername(str.substr(0, str.find_first_of(" \t")));
-	it->second.setRealname(str.substr(str.find_last_of(":")));
+	std::cout << "oneWord = " << oneWord << std::endl;
+	it->second.setUsername(firstword);
+	it->second.setRealname(oneWord.substr(1));
 	/*everything fine, answer to the client*/
+	std::cout << "usernqme in usercmd = " << it->second.getUsername() << std::endl;
 	if (_userList[fd].getNickname().compare("*") != 0 && !(_userList[fd].getUsername().empty()))
-		checkRegistration(fd);
+		if (!checkRegistration(fd))
+		{
+			std::string rep("ERROR :Access denied: Bad password?\n");
+			send(fd, rep.c_str(), rep.length(), 0);
+			close_fd(fd);
+			return;
+		}
 }
 
 void ircServer::joinCommand(std::string & request, int fd) {
@@ -230,7 +241,7 @@ void ircServer::joinCommand(std::string & request, int fd) {
 	unsigned int	countParams = 0;
 	while(stream >> oneWord) { ++countParams;}
 
-	std::string chans, keys, firstchan, firstkey, str = request.substr(request.find_first_of(" \t") + 1);
+	std::string chans, keys, firstchan, firstkey;
 	std::map<int, User>::iterator it = _userList.find(fd);
 	size_t i;
 
@@ -399,6 +410,7 @@ int	ircServer::checkPassword(User user){
 			<< _args.getPassword() << "|" << std::endl;
 		return false;
 	}
+	std::cout << "SAME PASSWORD, INSANE" << std::endl;
 	return true;
 }
 
@@ -474,15 +486,20 @@ void	ircServer::joinMsgChat(User const & user, std::string channel, int fd, std:
 	send(fd, rep.c_str(), rep.length(), 0);
 }
 
-void	ircServer::checkRegistration(int fd) {
-	send_to_fd("001", ":Welcome to our FT_IRC project !", _userList[fd], fd, true);
+int		ircServer::checkRegistration(int fd) {
+	if (!checkPassword(_userList[fd])) {
+		std::cout << "i return ZERO, COMME MON QI" << std::endl;
+		return 0;
+	}
+	send_to_fd("0001", ":Welcome to our FT_IRC project !", _userList[fd], fd, true);
 	send_to_fd("251",std::string(":There are ")+ getNbUsers() + " users, 0 servuces and 1 servers", _userList[fd], fd, false);
 	send_to_fd("254",std::string(getNbChannels()) + " :channels formed", _userList[fd], fd, false);
 	send_to_fd("255",std::string(":I have ")+ getNbUsers() + " users, 0 service and 0 servers", _userList[fd], fd, false);
+	return 1;
 }
 
 int	ircServer::check_unregistered(int fd){
-	if (_userList[fd].getNickname().empty() || (_userList[fd].getNickname().compare("*") == 0)) {
+	if (_userList[fd].getUsername().empty() || (_userList[fd].getNickname().compare("*") == 0)) {
 		std::string rep(":");
 		rep += SERVER_NAME;
 		rep += " 451 ";
@@ -491,10 +508,11 @@ int	ircServer::check_unregistered(int fd){
 		send(fd, rep.c_str(), rep.length(), 0);
 		return 1;
 	}
+	std::cout << "first condition" << _userList[fd].getUsername().empty() << "second one " << (_userList[fd].getNickname().compare("*") == 0) << std::endl;
 	return 0;
 }
 
 void	ircServer::close_fd(int fd){
-	close(fd);
+	shutdown(fd, 2);
 	_userList.erase(fd);
 }
