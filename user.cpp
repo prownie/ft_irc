@@ -3,7 +3,7 @@
 User::~User() {
 }
 
-User::User() {
+User::User() : _nickname(std::string("*")){
 	std::cout << "User created" << std::endl;
 }
 

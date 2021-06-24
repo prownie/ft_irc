@@ -12,9 +12,12 @@
 #include <map>
 #include "user.hpp"
 #include <cstring>
+#include <algorithm>
 
 #define MAX_FDS 1000
 #define DATA_BUFFER 10000
+#define ID_OPER "root"
+#define PWD_OPER "1234"
 #define SERVER_NAME "ft_irc.com"
 class ircServer
 {
@@ -40,9 +43,12 @@ public:
 	void	parseRequest(std::string request, int fd);
 	void	send_to_fd(std::string code, std::string message, User const & user,
 			int fd, bool dispRealName);
-	void	joinMsgChat(User user, std::string channel, int fd, std::string command) const;
+	void	joinMsgChat(User const & user, std::string channel, int fd, std::string command, std::string message);
+	int		check_unregistered(int fd);
+	void	checkRegistration(int fd);
 	std::string	getNbUsers() const;
 	std::string	getNbChannels() const;
+	void	close_fd(int fd);
 	/* Command functions*/
 	void 	passCommand(std::string & request, int fd);
 	void 	nickCommand(std::string & request, int fd);
@@ -57,3 +63,4 @@ public:
 #endif
 
 /*  /connect 127.0.0.1/8002 -password=bla    */
+

@@ -13,6 +13,7 @@ private:
 	std::string _realname;
 	std::string _tmpPassword;
 	std::string _tmpRequest;
+
 public:
 	~User();
 	User();
