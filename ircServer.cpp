@@ -61,10 +61,9 @@ void	ircServer::run() {
 	char buf[DATA_BUFFER];
 
 	while (1) {
-		std::cout << ("-----------------------------------------------------------") << std::endl;
-		std::cout << ("\nUsing poll() to listen for incoming events\n") << std::endl;
+		std::cout << "\nCurrently listening to " << _nb_fds - 1 <<" clients \n" << std::endl;
 		if (poll(_pollfds, _nb_fds, -1) == -1)
-			std::cout << "Error during poll" << std::endl;
+			throw std::runtime_error("Error during poll\n");
 		for (int fd = 0; fd < (_nb_fds); fd++) {
 			if ((_pollfds + fd)->fd  <= 0)
 				continue;
@@ -91,13 +90,12 @@ void	ircServer::run() {
 						if (close((_pollfds + fd)->fd) == -1)
 							std::cerr << "Client close failed" << std::endl;
 						(_pollfds + fd)->fd *= -1;
+						_nb_fds--;
 					}
 					else {
-						std::cout << "SOME DATA HAS BEEN RECEVEID, YOUH:\n" << buf << std::endl;
 						std::string data(buf);
 						parseRequest(data, (_pollfds + fd)->fd);
 						memset(buf, 0, DATA_BUFFER);
-						std::cout << "AFtER  REQ PROCESSING" << std::endl;
 					}
 				}
 			}
@@ -109,7 +107,6 @@ void	ircServer::processRequest(std::string & request, int fd) {
 	while(request.size() && isspace(request.front())) request.erase(request.begin()); // removes first spaces
 	while(request.size() && isspace(request.back())) request.pop_back(); //remove last spaces
 	if (whichCommand(request) > -1) {
-		std::cout << "It is a command" << std::endl;
 		void		(ircServer::*ptr[])(std::string &, int) = {
 		&ircServer::passCommand,
 		&ircServer::nickCommand,
@@ -119,22 +116,22 @@ void	ircServer::processRequest(std::string & request, int fd) {
 		&ircServer::quitCommand,
 		&ircServer::privmsgCommand,
 		&ircServer::lusersCommand,
-		&ircServer::motdCommand
+		&ircServer::motdCommand,
+		&ircServer::helpCommand,
+		&ircServer::killCommand
 		};
 		(this->*ptr[whichCommand(request)]) (request, fd);
 	}
 	else {
-		std::cout << "it is not a command wesh" << std::endl;
 		std::istringstream iss(request);
 		std::string command;
 		iss >> command;
-		std::cout << "command = |" << command << "|" << std::endl;
 		send_to_fd("421", std::string(command) +" :Unknown command", _userList[fd], fd, false);
 	}
 }
 
 int	ircServer::whichCommand(std::string & request) {
-	const char* arr[] = {"PASS","NICK","USER","JOIN","OPER","QUIT","PRIVMSG","LUSERS", "MOTD"};
+	const char* arr[] = {"PASS","NICK","USER","JOIN","OPER","QUIT","PRIVMSG","LUSERS", "MOTD", "HELP", "KILL"};
 	std::istringstream iss(request);
 	std::string firstWord;
 	std::vector<std::string>::iterator it;
@@ -143,7 +140,7 @@ int	ircServer::whichCommand(std::string & request) {
 	std::transform(firstWord.begin(), firstWord.end(),firstWord.begin(), ::toupper);
 	std::vector<std::string> commandList(arr, arr + sizeof(arr)/sizeof(arr[0]));
 	if (find(commandList.begin(), commandList.end(), firstWord) != commandList.end())
-		for (int i = 0; i < commandList.size() - 1; i++)
+		for (int i = 0; i < commandList.size(); i++)
 			if (firstWord == commandList[i])
 				return i;
 	return -1;
@@ -161,14 +158,13 @@ void ircServer::passCommand(std::string & request, int fd) {
 		send_to_fd("461", "QUIT :Syntnax error", _userList[fd], fd, false);
 		return;
 	}
-	std::map<int, User>::iterator it = _userList.find(fd);
 	str.erase( std::remove(str.begin(), str.end(), '\n'), str.end() );
 	if (_userList[fd].getNickname().compare("*") != 0 || !_userList[fd].getUsername().empty()) // already registered if nickname or username not empty
 	{
-		send_to_fd("462", ":Connection already registered", it->second, fd, false);
+		send_to_fd("462", ":Connection already registered", _userList[fd], fd, false);
 		return;
 	}
-	it->second.setTmpPwd(str);
+	_userList[fd].setTmpPwd(str);
 }
 
 void ircServer::nickCommand(std::string & request, int fd) {
@@ -188,7 +184,6 @@ void ircServer::nickCommand(std::string & request, int fd) {
 			return;
 		}
 	_userList[fd].setNickname(oneWord);
-	std::cout << "nickname = " << _userList[fd].getNickname() << ", username = " << _userList[fd].getUsername() << std::endl;
 	if (_userList[fd].getNickname().compare("*") != 0 && !(_userList[fd].getUsername().empty()))
 		if (!checkRegistration(fd))
 		{
@@ -212,17 +207,14 @@ void ircServer::userCommand(std::string & request, int fd) {
 		send_to_fd("461", "USER :Syntax error", _userList[fd], fd, false);
 		return;
 	}
-	std::map<int, User>::iterator it = _userList.find(fd);
-	if (_userList[fd].getNickname().compare("*") != 0 && !it->second.getRealName().empty())
+	if (_userList[fd].getNickname().compare("*") != 0 && !_userList[fd].getRealName().empty())
 	{
-		send_to_fd("462", ":Connection already registered", it->second, fd, false);
+		send_to_fd("462", ":Connection already registered", _userList[fd], fd, false);
 		return;
 	}
-	std::cout << "oneWord = " << oneWord << std::endl;
-	it->second.setUsername(firstword);
-	it->second.setRealname(oneWord.substr(1));
+	_userList[fd].setUsername(firstword);
+	_userList[fd].setRealname(oneWord.substr(1));
 	/*everything fine, answer to the client*/
-	std::cout << "usernqme in usercmd = " << it->second.getUsername() << std::endl;
 	if (_userList[fd].getNickname().compare("*") != 0 && !(_userList[fd].getUsername().empty()))
 		if (!checkRegistration(fd))
 		{
@@ -237,26 +229,22 @@ void ircServer::joinCommand(std::string & request, int fd) {
 	if (check_unregistered(fd)) return;
 	std::string str = request.substr(strlen("JOIN"));
 	std::stringstream 	stream(str);
-	std::string		oneWord;
+	std::string		chans;
+	std::string		keys;
 	unsigned int	countParams = 0;
-	while(stream >> oneWord) { ++countParams;}
+	if(stream >> chans) { ++countParams;}
+	if(stream >> keys) { ++countParams;}
+	if(stream >> chans) { ++countParams;}
 
-	std::string chans, keys, firstchan, firstkey;
-	std::map<int, User>::iterator it = _userList.find(fd);
+	std::string firstchan, firstkey;
 	size_t i;
 
 	if (countParams < 1 || countParams > 2) { //BAD SYNTAX
-		send_to_fd("461", "JOIN :Syntax error", it->second, fd, false);
+		send_to_fd("461", "JOIN :Syntax error",_userList[fd], fd, false);
 	}
-	if ((i = str.find(" ")) !=  std::string::npos) {// there is keys(2nd params)
-		chans = str.substr(0,i-1);
-		keys = str.substr(i+1);
-	}
-	else
-		chans = str;
 	while (!chans.empty()) { //can have more chan than keys, so we dont care
 		if (chans.find(',')) //more than 1 chan
-			firstchan = chans.substr(0, chans.find(',') - 1);
+			firstchan = chans.substr(0, chans.find(','));
 		else
 			firstchan = chans;
 
@@ -264,38 +252,32 @@ void ircServer::joinCommand(std::string & request, int fd) {
 			firstkey = keys.substr(0, chans.find(',') - 1);
 		else
 			firstkey = keys;
-
-		std::map<std::string, std::pair<std::vector<int>, std::string> >::iterator itchan = _channels.find(firstchan);
-		if (itchan != _channels.end()) {
-			itchan->second.first.push_back(fd);
-			joinMsgChat(it->second, firstchan, fd, "JOIN", std::string(""));
+		std::cout << "first chan = " << firstchan << std::endl;
+		std::map<std::string, Channel >::iterator itchan = _channels.find(firstchan);
+		if (itchan != _channels.end()) { //add to existing chan
+			itchan->second.addUser(fd);
+			joinMsgChat(_userList[fd], firstchan, fd, "JOIN", std::string(""));
 			std::cout << "add to existing chan" << std::endl;
-			//send_to_fd("");
+
+			std::vector<int> users = itchan->second.getUsers();
+			for (std::vector<int>::iterator it = users.begin(); it != users.end(); it++)
+				if ((*it) != fd)
+					joinMsgChat(_userList[fd], firstchan, (*it), "JOIN", std::string(""));
+			return;
 		}
 		else { //chan must begin with & or #, cant contain spaces/ctrl G/comma
-			if (firstchan.find_first_of("&#") == 0  || firstchan.find(" ,\x07") != std::string::npos) {
-				_channels[firstchan] = std::pair<std::vector<int>, std::string>(std::vector<int>(1, fd), firstkey);
-				joinMsgChat(it->second, firstchan, fd, "JOIN", std::string(""));
-				std::cout << "new chan" << std::endl;
+			if ((firstchan.find_first_of("&#") == 0) && (firstchan.find_first_of(" ,\x07") == std::string::npos)) {
+				_channels.insert(std::pair<std::string, Channel>(firstchan, Channel(fd, firstchan, firstkey)));
+				joinMsgChat(_userList[fd], firstchan, fd, "JOIN", std::string(""));
+				std::cout << "Creating new chan : " << firstchan << std::endl;
 			}
 			else //bad chan name
-			{
-				send_to_fd("403", std::string(firstchan)+" :No such channel", it->second, fd, false);
-				std::cout << std::string(firstchan)+" :No such channel" << std::endl;
-			}
+				send_to_fd("403", std::string(firstchan)+" :No such channel", _userList[fd], fd, false);
 		}
 		if (chans.find(',') != std::string::npos) //more than 1 chan
 			chans = chans.substr(chans.find(',')+1);
 		else
-		{ chans.erase(); std::cout << "chans erased" << std::endl; }
-	}
-	std::cout << "chan empty, leave functionlist of vector in chan :" << std::endl;
-
-	std::map<std::string, std::pair<std::vector<int>, std::string> >::iterator itchan = _channels.find(firstchan);
-	std::vector<int> users = itchan->second.first;
-	for (std::vector<int>::iterator it = users.begin(); it != users.end(); it++)
-	{
-		std::cout << "value fd = " << (*it) << std::endl;
+			chans.erase();
 	}
 }
 
@@ -303,9 +285,24 @@ void ircServer::operCommand(std::string & request, int fd) {
 	if (check_unregistered(fd)) return;
 	std::string str = request.substr(strlen("OPER"));
 	std::stringstream 	stream(str);
-	std::string		oneWord;
+	std::string		user;
+	std::string		password;
 	unsigned int	countParams = 0;
-	while(stream >> oneWord) { ++countParams;}
+	if (stream >> user) { ++countParams;}
+	if (stream >> password) { ++countParams;}
+	if (stream >> password) { ++countParams;}
+
+	if (countParams != 2) {
+		send_to_fd("461", "OPER :Syntax error", _userList[fd], fd, false);
+		return;
+	}
+	if (password.compare(PWD_OPER) == 0) {
+		_userList[fd].setOperName(user);
+		send_to_fd("381", ":You are now an IRC operator", _userList[fd], fd, false);
+	}
+	else {
+		send_to_fd("464", ":Password incorrect", _userList[fd], fd, false);
+	}
 }
 
 void ircServer::quitCommand(std::string & request, int fd) {
@@ -314,19 +311,19 @@ void ircServer::quitCommand(std::string & request, int fd) {
 	std::string message;
 
 	if (str.empty()) //no message, init with nickname
-		message = _userList[fd].getNickname();
+		message = "Client closed connection";
 	else
 		message = str.substr(str.find_first_not_of(" "));
 	if (std::count(message.begin(), message.end(), ' ') > 0 && message[0] != ':') {//there is more than one word, : needed
 		send_to_fd("461", "QUIT :Syntax error", _userList[fd], fd, false);
 		return;
 	}
-	std::map<std::string, std::pair<std::vector<int>, std::string> >::iterator it = _channels.begin();
-	std::map<std::string, std::pair<std::vector<int>, std::string> >::iterator ite = _channels.end();
+	std::map<std::string, Channel >::iterator it = _channels.begin();
+	std::map<std::string, Channel >::iterator ite = _channels.end();
 
 	for (; it != ite; it++) //fill users to contact with users who shares channels with the leaver
 	{
-		std::vector<int> tmp_users = it->second.first;
+		std::vector<int> tmp_users = it->second.getUsers();
 		for (std::vector<int>::iterator itusers = tmp_users.begin(); itusers != tmp_users.end(); itusers++)
 		{
 			if (find(users_to_contact.begin(), users_to_contact.end(),(*itusers)) != users_to_contact.end())
@@ -367,15 +364,13 @@ void ircServer::privmsgCommand(std::string & request, int fd) {
 		send_to_fd("461", "PRIVMSG :Syntnax error", _userList[fd], fd, false);
 		return;
 	}
-	std::map<std::string, std::pair<std::vector<int>, std::string> >::iterator itchan = _channels.find(target);
+	std::map<std::string, Channel >::iterator itchan = _channels.find(target);
 	if (itchan != _channels.end())
 	{
-		std::vector<int> users = itchan->second.first;
+		std::vector<int> users = itchan->second.getUsers();
 		for (std::vector<int>::iterator it = users.begin(); it != users.end(); it++)
-		{
-			std::cout << "value fd = " << (*it) << std::endl;
-			joinMsgChat(_userList[fd], target, (*it), "PRIVMSG", message);
-		}
+			if ((*it) != fd)
+				joinMsgChat(_userList[fd], target, (*it), "PRIVMSG", message);
 		return;
 	}
 	for (std::map<int, User>::iterator it = _userList.begin(); it != _userList.end(); it++)
@@ -392,10 +387,9 @@ void ircServer::privmsgCommand(std::string & request, int fd) {
 
 void ircServer::lusersCommand(std::string & request, int fd) {
 	if (check_unregistered(fd)) return;
-	std::map<int, User>::iterator it = _userList.find(fd);
-	send_to_fd("251",std::string(":There are ")+ getNbUsers() + " users, 0 servuces and 1 servers", it->second, fd, false);
-	send_to_fd("254",std::string(getNbChannels()) + " :channels formed", it->second, fd, false);
-	send_to_fd("255",std::string(":I have ")+ getNbUsers() + " users, 0 service and 0 servers", it->second, fd, false);
+	send_to_fd("251",std::string(":There are ")+ getNbUsers() + " users, 0 servuces and 1 servers", _userList[fd], fd, false);
+	send_to_fd("254",std::string(getNbChannels()) + " :channels formed", _userList[fd], fd, false);
+	send_to_fd("255",std::string(":I have ")+ getNbUsers() + " users, 0 service and 0 servers", _userList[fd], fd, false);
 }
 
 void ircServer::motdCommand(std::string & request, int fd) {
@@ -403,14 +397,65 @@ void ircServer::motdCommand(std::string & request, int fd) {
 
 }
 
+void ircServer::helpCommand(std::string & request, int fd) {
+	std::string rep("Hello, need help  ? I will guide you on what to do and what you can do\n\n");
+	rep += "The recommended order of orders for registering a customer is as follows:\n";
+	rep += "PASS <password>\n";
+	rep += "(The PASS command is used to set the 'login password')\n\n";
+	rep += "NICK <pseudonyme>\n";
+	rep += "(The NICK message is used to give a user a nickname)\n\n";
+	rep += "USER <username> . . <real name>\n";
+	rep += "(The USER message is used at the start of a connection to specify the user name, host name, server name, and real name of a new user)\n\n";
+	rep += "JOIN <channel1,channel2> <key1,key2>\n";
+	rep += "(The JOIN command is used by a client to start listening to a specific channel)\n\n";
+	rep += "OPER <user> <password>\n";
+	rep += "(The OPER message is used by a normal user to obtain the operator privilege)\n\n";
+	rep += "QUIT [<Quit message>]\n";
+	rep += "(A client session ends with a QUIT message can add a leave message)\n\n";
+	rep += "PRIVMSG <recipient>(1 or more) <:text to send>\n";
+	rep += "(PRIVMSG is used to send a private message between users)\n\n";
+	rep += "OPER (OPER command)\n";
+	rep += "OPER is used to have operator privileges\n\n";
+	rep += "KICK <channel> <user>\n";
+	rep += "(The KICK command is used to remove a user from a channel)\n\n";
+	send(fd, rep.c_str(), rep.length(), 0);
+}
+
+void	ircServer::killCommand(std::string & request, int fd) {
+	if (check_unregistered(fd)) return;
+	std::string str = request.substr(strlen("KILL"));
+	std::stringstream 	stream(str);
+	std::string		target;
+	std::string		message;
+	unsigned int	countParams = 0;
+	if (stream >> target) { ++countParams;}
+	if (stream >> message) { ++countParams;}
+
+	if (countParams < 2) {
+		send_to_fd("461", "KILL :Syntax error", _userList[fd], fd, false);
+		return;
+	}
+	if (_userList[fd].getOperName().empty()) {
+		send_to_fd("481", ":Permission Denied- You're not an IRC operator",_userList[fd],fd,false);
+		return;
+	}
+	for (std::map<int, User>::iterator it = _userList.begin(); it != _userList.end(); it++){
+		if (target == it->second.getNickname()) {
+			std::string rep("ERROR : KILLed by ");
+			rep += _userList[fd].getNickname();
+			rep += ": ";
+			rep += str.substr(str.find_first_not_of(" ")).substr(str.find_first_of(" ")+1);
+			rep += "\n";
+			send(it->first, rep.c_str(), rep.length(), 0);
+			close_fd(it->first);
+			return;
+		}
+	}
+	return;
+}
 int	ircServer::checkPassword(User user){
 	if (user.getTmpPwd() != _args.getPassword())
-	{
-		std::cout << "user pwd = |" << user.getTmpPwd() << "| server pwd = |"
-			<< _args.getPassword() << "|" << std::endl;
 		return false;
-	}
-	std::cout << "SAME PASSWORD, INSANE" << std::endl;
 	return true;
 }
 
@@ -422,13 +467,12 @@ void	ircServer::parseRequest(std::string request, int fd){
 	while (!request.empty())
 	{
 		if (request.find('\n') == std::string::npos) {// no \n found, incomplete request, add to user
-			it->second.appendTmpRequest(request);
+			_userList[fd].appendTmpRequest(request);
 			break;
 		}
 		else { //\n found, but maybe more than 1, check User._tmpRequest to append with it
 			parse = it->second.getTmpRequest().append(request.substr(0, request.find_first_of("\n")));
-			it->second.cleanTmpRequest(); //request is complete, we can clean tmpReq;
-			std::cout << "PARSED REQUEST IN PARSEREQUEST : |" << parse << "|" << std::endl;
+			_userList[fd].cleanTmpRequest(); //request is complete, we can clean tmpReq;
 			processRequest(parse, fd);
 		}
 		request = request.substr(request.find_first_of("\n") + 1);
@@ -448,7 +492,7 @@ std::string	ircServer::getNbChannels() const{
 }
 
 void	ircServer::send_to_fd(std::string code, std::string message,
-User const & user, int fd, bool dispRealName) {
+User const & user, int fd, bool dispRealName) const {
 	std::string rep(":");
 	rep += SERVER_NAME;
 	rep += " ";
@@ -466,7 +510,6 @@ User const & user, int fd, bool dispRealName) {
 	}
 	rep += "\n";
 	send(fd, rep.c_str(), rep.length(), 0);
-	std::cout << message << std::endl;
 	return;
 }
 
@@ -482,16 +525,14 @@ void	ircServer::joinMsgChat(User const & user, std::string channel, int fd, std:
 	else
 		rep += (" :" + channel);
 	rep += "\n";
-	std::cout << "rep=" << rep << "with command=" << command << std::endl;
 	send(fd, rep.c_str(), rep.length(), 0);
 }
 
 int		ircServer::checkRegistration(int fd) {
-	if (!checkPassword(_userList[fd])) {
-		std::cout << "i return ZERO, COMME MON QI" << std::endl;
+	if (!checkPassword(_userList[fd]))
 		return 0;
-	}
-	send_to_fd("0001", ":Welcome to our FT_IRC project !", _userList[fd], fd, true);
+	std::cout << "User " << _userList[fd].getNickname() << " registered !" << std::endl;
+	send_to_fd("001", ":Welcome to our FT_IRC project !", _userList[fd], fd, false);
 	send_to_fd("251",std::string(":There are ")+ getNbUsers() + " users, 0 servuces and 1 servers", _userList[fd], fd, false);
 	send_to_fd("254",std::string(getNbChannels()) + " :channels formed", _userList[fd], fd, false);
 	send_to_fd("255",std::string(":I have ")+ getNbUsers() + " users, 0 service and 0 servers", _userList[fd], fd, false);
@@ -504,15 +545,26 @@ int	ircServer::check_unregistered(int fd){
 		rep += SERVER_NAME;
 		rep += " 451 ";
 		rep += _userList[fd].getNickname();
-		rep += "  :Connection not registered\n";
+		rep += " :Connection not registered\n";
 		send(fd, rep.c_str(), rep.length(), 0);
 		return 1;
 	}
-	std::cout << "first condition" << _userList[fd].getUsername().empty() << "second one " << (_userList[fd].getNickname().compare("*") == 0) << std::endl;
 	return 0;
 }
 
 void	ircServer::close_fd(int fd){
-	shutdown(fd, 2);
-	_userList.erase(fd);
+	int i = 0;
+	for (; i < _nb_fds; i++)
+		if (_pollfds[i].fd == fd)
+			break;
+	if (i == _nb_fds - 1) { // last poll, just close and decr fd number
+		close(fd);
+	}
+	else { //switch the one to delete with the last one
+		_pollfds[i] = _pollfds[_nb_fds - 1];
+		close(fd);
+	}
+	std::cout << "fd closed = " << fd << std::endl;
+	_nb_fds--;
 }
+

@@ -2,6 +2,7 @@
 #define IRCSERVER_HPP
 #include "args.hpp"
 #include "user.hpp"
+#include "channel.hpp"
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <unistd.h>
@@ -14,9 +15,9 @@
 #include <cstring>
 #include <algorithm>
 
+
 #define MAX_FDS 1000
 #define DATA_BUFFER 10000
-#define ID_OPER "root"
 #define PWD_OPER "1234"
 #define SERVER_NAME "ft_irc.com"
 class ircServer
@@ -29,7 +30,7 @@ private:
 	int	_nb_fds;
 	std::map<int, User> _userList;
 	//_channels map = <name,pair<user_list, password
-	std::map<std::string, std::pair<std::vector<int>, std::string> > _channels;
+	std::map<std::string, Channel> _channels;
 public:
 	ircServer(Args args);
 	ircServer(ircServer const & src);
@@ -42,7 +43,7 @@ public:
 	int		checkPassword(User user);
 	void	parseRequest(std::string request, int fd);
 	void	send_to_fd(std::string code, std::string message, User const & user,
-			int fd, bool dispRealName);
+			int fd, bool dispRealName) const;
 	void	joinMsgChat(User const & user, std::string channel, int fd, std::string command, std::string message);
 	int		check_unregistered(int fd);
 	int		checkRegistration(int fd);
@@ -59,6 +60,8 @@ public:
 	void 	privmsgCommand(std::string & request, int fd);
 	void 	lusersCommand(std::string & request, int fd);
 	void 	motdCommand(std::string & request, int fd);
+	void	helpCommand(std::string & request, int fd);
+	void	killCommand(std::string & request, int fd);
 };
 #endif
 

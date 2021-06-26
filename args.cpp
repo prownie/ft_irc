@@ -1,7 +1,7 @@
 #include "args.hpp"
 
 Args::Args(int ac, char **av) {
-	if (ac < 2 || ac > 4)
+	if (ac < 3 || ac > 4)
 		throw Args::Bad_arg_number_exception();
 	int i = ac - 1;
 	_password = std::string(av[i--]);
