@@ -16,6 +16,7 @@ public:
 	std::vector<int> getUsers() const;
 	std::string	getName() const;
 	std::string getKey() const;
+	void	 setKey(std::string key);
 	void	addUser(int fd);
 
 };

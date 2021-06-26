@@ -27,3 +27,4 @@ std::vector<int> Channel::getUsers() const {return _users;}
 std::string	Channel::getName() const{return _name;}
 std::string Channel::getKey() const{return _key;}
 void	Channel::addUser(int fd) {_users.push_back(fd);}
+void	 Channel::setKey(std::string key) {_key=key;}

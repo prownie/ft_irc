@@ -18,6 +18,7 @@
 
 #define MAX_FDS 1000
 #define DATA_BUFFER 10000
+#define ID_OPER "root"
 #define PWD_OPER "1234"
 #define SERVER_NAME "ft_irc.com"
 class ircServer

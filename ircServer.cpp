@@ -263,7 +263,6 @@ void ircServer::joinCommand(std::string & request, int fd) {
 			for (std::vector<int>::iterator it = users.begin(); it != users.end(); it++)
 				if ((*it) != fd)
 					joinMsgChat(_userList[fd], firstchan, (*it), "JOIN", std::string(""));
-			return;
 		}
 		else { //chan must begin with & or #, cant contain spaces/ctrl G/comma
 			if ((firstchan.find_first_of("&#") == 0) && (firstchan.find_first_of(" ,\x07") == std::string::npos)) {
@@ -296,7 +295,7 @@ void ircServer::operCommand(std::string & request, int fd) {
 		send_to_fd("461", "OPER :Syntax error", _userList[fd], fd, false);
 		return;
 	}
-	if (password.compare(PWD_OPER) == 0) {
+	if (password.compare(PWD_OPER) == 0 && user.compare(ID_OPER) == 0) {
 		_userList[fd].setOperName(user);
 		send_to_fd("381", ":You are now an IRC operator", _userList[fd], fd, false);
 	}
@@ -547,6 +546,7 @@ int	ircServer::check_unregistered(int fd){
 		rep += _userList[fd].getNickname();
 		rep += " :Connection not registered\n";
 		send(fd, rep.c_str(), rep.length(), 0);
+
 		return 1;
 	}
 	return 0;
@@ -564,6 +564,7 @@ void	ircServer::close_fd(int fd){
 		_pollfds[i] = _pollfds[_nb_fds - 1];
 		close(fd);
 	}
+	_userList.erase(fd);
 	std::cout << "fd closed = " << fd << std::endl;
 	_nb_fds--;
 }
