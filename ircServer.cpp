@@ -317,17 +317,18 @@ void ircServer::quitCommand(std::string & request, int fd) {
 		send_to_fd("461", "QUIT :Syntax error", _userList[fd], fd, false);
 		return;
 	}
-	std::map<std::string, Channel >::iterator it = _channels.begin();
+
 	std::map<std::string, Channel >::iterator ite = _channels.end();
 
-	for (; it != ite; it++) //fill users to contact with users who shares channels with the leaver
+	for (std::map<std::string, Channel >::iterator it = _channels.begin(); it != ite; it++) //fill users to contact with users who shares channels with the leaver
 	{
 		std::vector<int> tmp_users = it->second.getUsers();
-		for (std::vector<int>::iterator itusers = tmp_users.begin(); itusers != tmp_users.end(); itusers++)
-		{
-			if (find(users_to_contact.begin(), users_to_contact.end(),(*itusers)) != users_to_contact.end())
-				users_to_contact.push_back((*itusers));
-		}
+		if (find(tmp_users.begin(), tmp_users.end(), fd) != tmp_users.end())
+			for (std::vector<int>::iterator itusers = tmp_users.begin(); itusers != tmp_users.end(); itusers++)
+			{
+				if (find(users_to_contact.begin(), users_to_contact.end(),(*itusers)) == users_to_contact.end())
+					users_to_contact.push_back((*itusers));
+			}
 	}
 	for (std::vector<int>::iterator contact = users_to_contact.begin(); contact != users_to_contact.end(); contact++)
 	{
@@ -339,9 +340,11 @@ void ircServer::quitCommand(std::string & request, int fd) {
 			rep += "@localhost QUIT ";
 			rep += message;
 			rep += "\n";
-			send(fd, rep.c_str(), rep.length(), 0);
+			std::cout << rep << std::endl;
+			send((*contact), rep.c_str(), rep.length(), 0);
 		}
 	}
+	close_fd(fd);
 }
 
 void ircServer::privmsgCommand(std::string & request, int fd) {
