@@ -255,11 +255,12 @@ void ircServer::joinCommand(std::string & request, int fd) {
 		std::cout << "first chan = " << firstchan << std::endl;
 		std::map<std::string, Channel >::iterator itchan = _channels.find(firstchan);
 		if (itchan != _channels.end()) { //add to existing chan
+			std::vector<int> users = itchan->second.getUsers(); //check if user isnt already in
+			if (find(users.begin(), users.end(), fd) !=  users.end())
+				break;
 			itchan->second.addUser(fd);
 			joinMsgChat(_userList[fd], firstchan, fd, "JOIN", std::string(""));
 			std::cout << "add to existing chan" << std::endl;
-
-			std::vector<int> users = itchan->second.getUsers();
 			for (std::vector<int>::iterator it = users.begin(); it != users.end(); it++)
 				if ((*it) != fd)
 					joinMsgChat(_userList[fd], firstchan, (*it), "JOIN", std::string(""));
