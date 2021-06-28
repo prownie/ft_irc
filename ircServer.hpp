@@ -21,6 +21,7 @@
 #define ID_OPER "root"
 #define PWD_OPER "1234"
 #define SERVER_NAME "ft_irc.com"
+#define ALLOWED_CHAR "`|^_-{}[]\\abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 class ircServer
 {
 private:
@@ -41,7 +42,7 @@ public:
 	void	run();
 	void	processRequest(std::string & request, int fd);
 	int		whichCommand(std::string & request);
-	int		checkPassword(User user);
+	int		checkPassword(User & user);
 	void	parseRequest(std::string request, int fd);
 	void	send_to_fd(std::string code, std::string message, User const & user,
 			int fd, bool dispRealName) const;

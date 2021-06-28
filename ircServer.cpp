@@ -175,7 +175,7 @@ void ircServer::nickCommand(std::string & request, int fd) {
 	if(stream >>secondArg) { ++countParams;}
 	if(stream>>secondArg) { ++countParams;}
 
-	if (countParams < 1 || countParams > 2 || (firstArg.length() > 9) || firstArg.find_first_not_of("`|^_-{}[]\\") != std::string::npos){
+	if (countParams < 1 || countParams > 2 || (firstArg.length() > 9) || firstArg.find_first_not_of(ALLOWED_CHAR) != std::string::npos){
 		send_to_fd("461", "NICK :Syntax error", _userList[fd], fd, false);
 		return;
 	}
@@ -374,42 +374,60 @@ void ircServer::quitCommand(std::string & request, int fd) {
 
 void ircServer::privmsgCommand(std::string & request, int fd) {
 	if (check_unregistered(fd)) return;
-	std:: string str = request.substr(strlen("PRIVMSG"));
-	if (str.empty()) {
+	std::string str = request.substr(strlen("PRIVMSG"));
+	std::stringstream 	stream(str);
+	std::string		dests, message, tmp, firstdest;
+	unsigned int	countParams = 0;
+	if(stream >> dests) { ++countParams;}
+	if(stream >> message) { ++countParams;}
+	while (stream >> tmp) { ++countParams;}
+
+	if (countParams == 0) {
 		send_to_fd("411", ":No recipient given (PRIVMSG)", _userList[fd], fd, false);
 		return;
 	}
-	std::string target = str.substr(str.find_first_not_of(" "));
-	if (target.find(" ") == std::string::npos) {
+
+	if (countParams == 1) {
 		send_to_fd("412", "No text to send", _userList[fd], fd, false); //only dest, no params
 		return;
 	}
-	std::string message = target.substr(target.find_first_of(" ")+1);
-	message = message.substr(message.find_first_not_of(" "));
-	target = target.substr(0, target.find(" "));
-	if (std::count(message.begin(), message.end(), ' ') > 0 && message[0] != ':') {//there is more than one word, : needed
+
+	if (countParams > 2 && message[0] != ':') {//there is more than one word, : needed
 		send_to_fd("461", "PRIVMSG :Syntnax error", _userList[fd], fd, false);
 		return;
 	}
-	std::map<std::string, Channel >::iterator itchan = _channels.find(target);
-	if (itchan != _channels.end())
-	{
-		std::vector<int> users = itchan->second.getUsers();
-		for (std::vector<int>::iterator it = users.begin(); it != users.end(); it++)
-			if ((*it) != fd)
-				joinMsgChat(_userList[fd], target, (*it), "PRIVMSG", message);
-		return;
-	}
-	for (std::map<int, User>::iterator it = _userList.begin(); it != _userList.end(); it++)
-	{
-		if (it->second.getNickname() == target)
+	str = str.substr(str.find(dests) + dests.length());
+	str = str.substr(str.find_first_not_of(" "));
+	if (str[0] == ':') str = str.substr(1); //remove first char if ":"
+
+	while(!dests.empty()) {
+		if (dests.find(',')) //more than 1 chan
+			firstdest = dests.substr(0, dests.find(','));
+		else
+			firstdest = dests;
+		std::map<std::string, Channel >::iterator itchan = _channels.find(firstdest);
+		if (itchan != _channels.end())
 		{
-			joinMsgChat(_userList[fd], target, it->first, "PRIVMSG", message);
+			std::vector<int> users = itchan->second.getUsers();
+			for (std::vector<int>::iterator it = users.begin(); it != users.end(); it++)
+				if ((*it) != fd)
+					joinMsgChat(_userList[fd], firstdest, (*it), "PRIVMSG", str);
 			return;
 		}
+		for (std::map<int, User>::iterator it = _userList.begin(); it != _userList.end(); it++)
+		{
+			if (it->second.getNickname() == firstdest)
+			{
+				joinMsgChat(_userList[fd], firstdest, it->first, "PRIVMSG", str);
+				return;
+			}
+		}
+		send_to_fd("401", ":No such nick or channel name",_userList[fd],fd,false);
+		if (dests.find(',') != std::string::npos) //more than 1 chan
+			dests = dests.substr(dests.find(',')+1);
+		else
+			dests.erase();
 	}
-
-	send_to_fd("401", ":No such nick or channel name",_userList[fd],fd,false);
 }
 
 void ircServer::lusersCommand(std::string & request, int fd) {
@@ -480,7 +498,7 @@ void	ircServer::killCommand(std::string & request, int fd) {
 	}
 }
 
-int	ircServer::checkPassword(User user){
+int	ircServer::checkPassword(User & user){
 	if (user.getTmpPwd() != _args.getPassword())
 		return false;
 	return true;
