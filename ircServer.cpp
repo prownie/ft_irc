@@ -150,12 +150,12 @@ void ircServer::passCommand(std::string & request, int fd) {
 	std::string str = request.substr(strlen("PASS"));
 
 	if (str.empty()){
-		send_to_fd("461", "QUIT :Syntax error", _userList[fd], fd, false);
+		send_to_fd("461", "PASS :Syntax error", _userList[fd], fd, false);
 		return;
 	}
 	str = str.substr(str.find_first_not_of(" "));
 	if (std::count(str.begin(), str.end(), ' ') > 0 && str[0] != ':') {//there is more than one word, not rfc compliant
-		send_to_fd("461", "QUIT :Syntnax error", _userList[fd], fd, false);
+		send_to_fd("461", "PASS :Syntnax error", _userList[fd], fd, false);
 		return;
 	}
 	str.erase( std::remove(str.begin(), str.end(), '\n'), str.end() );
@@ -171,6 +171,7 @@ void ircServer::nickCommand(std::string & request, int fd) {
 	std::string str = request.substr(strlen("NICK"));
 	std::stringstream 	stream(str);
 	std::string		oneWord;
+	std::string		oldNick;
 	unsigned int	countParams = 0;
 	while(stream >> oneWord) { ++countParams;}
 
@@ -183,8 +184,16 @@ void ircServer::nickCommand(std::string & request, int fd) {
 			send_to_fd("462", " :Nickname is already in use", it->second, fd, false);
 			return;
 		}
+	if (_userList[fd].getNickname().compare("*") != 0)
+		oldNick = _userList[fd].getNickname();
 	_userList[fd].setNickname(oneWord);
-	if (_userList[fd].getNickname().compare("*") != 0 && !(_userList[fd].getUsername().empty()))
+	if (_userList[fd].isRegistered())
+	{
+		std::string rep(":"); rep += oldNick; rep += "!~"; rep += _userList[fd].getUsername(); rep += "@localhost NICK :"; rep += oneWord; rep += "\n";
+		send(fd, rep.c_str(), rep.length(), 0);
+		return ;
+	}
+	if (_userList[fd].getNickname().compare("*") != 0 && !(_userList[fd].getUsername().empty())) {
 		if (!checkRegistration(fd))
 		{
 			std::string rep("ERROR :Access denied: Bad password?\n");
@@ -192,6 +201,11 @@ void ircServer::nickCommand(std::string & request, int fd) {
 			close_fd(fd);
 			return;
 		}
+		else {
+			std::cout << "im here" << std::endl;
+			_userList[fd].setRegistered(1);
+		}
+	}
 }
 
 void ircServer::userCommand(std::string & request, int fd) {
@@ -215,7 +229,7 @@ void ircServer::userCommand(std::string & request, int fd) {
 	_userList[fd].setUsername(firstword);
 	_userList[fd].setRealname(oneWord.substr(1));
 	/*everything fine, answer to the client*/
-	if (_userList[fd].getNickname().compare("*") != 0 && !(_userList[fd].getUsername().empty()))
+	if (_userList[fd].getNickname().compare("*") != 0 && !(_userList[fd].getUsername().empty())) {
 		if (!checkRegistration(fd))
 		{
 			std::string rep("ERROR :Access denied: Bad password?\n");
@@ -223,6 +237,11 @@ void ircServer::userCommand(std::string & request, int fd) {
 			close_fd(fd);
 			return;
 		}
+		else {
+			std::cout << "im here" << std::endl;
+			_userList[fd].setRegistered(1);
+		}
+	}
 }
 
 void ircServer::joinCommand(std::string & request, int fd) {

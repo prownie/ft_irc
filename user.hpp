@@ -14,6 +14,7 @@ private:
 	std::string _tmpPassword;
 	std::string _tmpRequest;
 	std::string	_operName;
+	bool		_isRegistered;
 public:
 	~User();
 	User();
@@ -32,6 +33,8 @@ public:
 	std::string const & getNickname() const;
 	std::string & getTmpRequest() ;
 	std::string const & getOperName() const;
+	bool	isRegistered();
+	void	setRegistered(int val);
 	void	cleanTmpRequest();
 };
 
