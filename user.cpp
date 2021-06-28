@@ -1,6 +1,7 @@
 #include "user.hpp"
 
 User::~User() {
+	std::cout << "User " << getNickname() << " is closed" << std::endl;
 }
 
 User::User() : _nickname(std::string("*")), _isRegistered(false){
@@ -13,6 +14,7 @@ User::User(User const & src) {
 	_rights = src._rights;
 	_realname = src._realname;
 	_tmpPassword = src._tmpPassword;
+	std::cout << "User created by assignation" << std::endl;
 }
 
 void	User::setTmpPwd(std::string tmpPwd) {_tmpPassword = tmpPwd;}

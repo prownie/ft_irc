@@ -23,6 +23,10 @@ Channel::~Channel(){
 
 }
 
+void	Channel::eraseUser(int fd){
+	_users.erase(find(_users.begin(), _users.end(), fd));
+}
+
 std::vector<int> Channel::getUsers() const {return _users;}
 std::string	Channel::getName() const{return _name;}
 std::string Channel::getKey() const{return _key;}

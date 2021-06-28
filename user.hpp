@@ -18,7 +18,6 @@ private:
 public:
 	~User();
 	User();
-	User(std::string nickname);
 	User(User const & src);
 	User & operator=(User const & rhs);
 	void	setTmpPwd(std::string tmpPwd);
@@ -39,3 +38,5 @@ public:
 };
 
 #endif
+
+//:rpichon!~username42@localhost QUIT :"WeeChat 3.2"
