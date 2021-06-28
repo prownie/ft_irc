@@ -186,10 +186,10 @@ void ircServer::nickCommand(std::string & request, int fd) {
 		}
 	if (_userList[fd].getNickname().compare("*") != 0)
 		oldNick = _userList[fd].getNickname();
-	std::cout << "OLDNICK = " << oldNick << std::endl;
 	_userList[fd].setNickname(firstArg);
 	if (_userList[fd].isRegistered())
 	{
+		std::cout << "OLDNICK = " << oldNick << std::endl;
 		std::string rep(":"); rep += oldNick; rep += "!~"; rep += _userList[fd].getUsername(); rep += "@localhost NICK :"; rep += firstArg; rep += "\n";
 		send(fd, rep.c_str(), rep.length(), 0);
 		return ;
@@ -410,16 +410,17 @@ void ircServer::privmsgCommand(std::string & request, int fd) {
 		{
 			std::vector<int> users = itchan->second.getUsers();
 			for (std::vector<int>::iterator it = users.begin(); it != users.end(); it++)
-				if ((*it) != fd)
+				if ((*it) != fd) {
 					joinMsgChat(_userList[fd], firstdest, (*it), "PRIVMSG", str);
-			return;
+					std::cout << "dest = " << firstdest << ", message =" << str << std::endl;
+				}
 		}
 		for (std::map<int, User>::iterator it = _userList.begin(); it != _userList.end(); it++)
 		{
 			if (it->second.getNickname() == firstdest)
 			{
 				joinMsgChat(_userList[fd], firstdest, it->first, "PRIVMSG", str);
-				return;
+				std::cout << "dest = " << firstdest << ", message =" << str << std::endl;
 			}
 		}
 		send_to_fd("401", ":No such nick or channel name",_userList[fd],fd,false);
@@ -602,6 +603,7 @@ int	ircServer::check_unregistered(int fd){
 
 void	ircServer::close_fd(int fd){
 	int i = 0;
+	_pollfds[i].fd *= -1;
 	for (; i < _nb_fds; i++)
 		if (_pollfds[i].fd == fd)
 			break;
@@ -613,7 +615,6 @@ void	ircServer::close_fd(int fd){
 		close(fd);
 	}
 	_userList.erase(fd);
-	_pollfds[i].fd *= -1;
 	std::cout << "fd closed = " << fd << std::endl;
 	_nb_fds--;
 }
