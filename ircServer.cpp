@@ -28,6 +28,8 @@ int		ircServer::create_tcp_server_socket() {
 
 	/*Create tcp socket*/
 	fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+	int opt = 1;
+	setsockopt(fd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt, sizeof(opt));
 	if (fd == -1)
 		throw std::runtime_error("Creating server socket failed\n");
 	std::cout << "Server socked created with fd [" << fd << "]" << std::endl;
@@ -38,7 +40,6 @@ int		ircServer::create_tcp_server_socket() {
 	saddr.sin_port = htons(_args.getPort());
 	saddr.sin_addr.s_addr = inet_addr("127.0.0.1");
 
-	std::cout << "port value = " << _args.getPort() << std::endl;
 	ret_val = bind(fd, (struct sockaddr *)&saddr, sizeof(struct sockaddr_in));
 	if (ret_val != 0) {
 		close(fd);
@@ -61,7 +62,7 @@ void	ircServer::run() {
 	char buf[DATA_BUFFER];
 
 	while (1) {
-		std::cout << "\nCurrently listening to " << _nb_fds - 1 << " clients" << std::endl;
+		std::cout << red << "\nCurrently listening to " << _nb_fds - 1 << " clients" << reset << std::endl;
 		if (poll(_pollfds, _nb_fds, -1) == -1)
 			throw std::runtime_error("Error during poll\n");
 		for (int fd = 0; fd < (_nb_fds); fd++) {
@@ -72,7 +73,7 @@ void	ircServer::run() {
 					int new_fd;
 					if ((new_fd = accept(_pollfds[0].fd, (struct sockaddr *) &client_saddr, &addrlen)) == -1)
 						std::cerr << "Accept failed" << std::endl;
-					std::cout << "New connection accepted on fd[" << new_fd << "]" << std::endl;
+					std::cout << "New connection accepted on fd[" << green << new_fd << reset << "]" << std::endl;
 					_userList.insert(std::pair<int, User>(new_fd, User()));
 					(_pollfds + _nb_fds)->fd = new_fd;
 					(_pollfds + _nb_fds)->events = POLLIN;
@@ -85,9 +86,8 @@ void	ircServer::run() {
 					if (ret_val == -1)
 						std::cerr << "Recv failed" << std::endl;
 					else if (ret_val == 0) {
-						std::cout << "Connection on fd[" << (_pollfds + fd)->fd << "] closed by client" << std::endl;
+						std::cout << "Connection on fd[" << green << (_pollfds + fd)->fd << reset << "] closed by client" << std::endl;
 						std::string rep ("QUIT");
-						std::cout << "IM LEAVING HERE" << std::endl;
 						quitCommand(rep, (_pollfds + fd)->fd);
 					}
 					else {
@@ -138,7 +138,7 @@ int	ircServer::whichCommand(std::string & request) {
 	std::transform(firstWord.begin(), firstWord.end(),firstWord.begin(), ::toupper);
 	std::vector<std::string> commandList(arr, arr + sizeof(arr)/sizeof(arr[0]));
 	if (find(commandList.begin(), commandList.end(), firstWord) != commandList.end())
-		for (int i = 0; i < commandList.size(); i++)
+		for (size_t i = 0; i < commandList.size(); i++)
 			if (firstWord == commandList[i])
 				return i;
 	return -1;
@@ -189,7 +189,6 @@ void ircServer::nickCommand(std::string & request, int fd) {
 	_userList[fd].setNickname(firstArg);
 	if (_userList[fd].isRegistered())
 	{
-		std::cout << "OLDNICK = " << oldNick << std::endl;
 		std::string rep(":"); rep += oldNick; rep += "!~"; rep += _userList[fd].getUsername(); rep += "@localhost NICK :"; rep += firstArg; rep += "\n";
 		send(fd, rep.c_str(), rep.length(), 0);
 		return ;
@@ -203,10 +202,8 @@ void ircServer::nickCommand(std::string & request, int fd) {
 			close_fd(fd);
 			return;
 		}
-		else {
-			std::cout << "im here" << std::endl;
+		else
 			_userList[fd].setRegistered(1);
-		}
 	}
 }
 
@@ -240,10 +237,8 @@ void ircServer::userCommand(std::string & request, int fd) {
 			close_fd(fd);
 			return;
 		}
-		else {
-			std::cout << "im here" << std::endl;
+		else
 			_userList[fd].setRegistered(1);
-		}
 	}
 }
 
@@ -259,7 +254,6 @@ void ircServer::joinCommand(std::string & request, int fd) {
 	if(stream >> chans) { ++countParams;}
 
 	std::string firstchan, firstkey;
-	size_t i;
 
 	if (countParams < 1 || countParams > 2) { //BAD SYNTAX
 		send_to_fd("461", "JOIN :Syntax error",_userList[fd], fd, false);
@@ -277,20 +271,20 @@ void ircServer::joinCommand(std::string & request, int fd) {
 		std::map<std::string, Channel >::iterator itchan = _channels.find(firstchan);
 		if (itchan != _channels.end()) { //add to existing chan
 			std::vector<int> users = itchan->second.getUsers(); //check if user isnt already in
-			if (find(users.begin(), users.end(), fd) !=  users.end())
-				break;
-			itchan->second.addUser(fd);
-			joinMsgChat(_userList[fd], firstchan, fd, "JOIN", std::string(""));
-			std::cout << "add to existing chan" << std::endl;
-			for (std::vector<int>::iterator it = users.begin(); it != users.end(); it++)
-				if ((*it) != fd)
-					joinMsgChat(_userList[fd], firstchan, (*it), "JOIN", std::string(""));
+			if (find(users.begin(), users.end(), fd) ==  users.end()){
+				itchan->second.addUser(fd);
+				joinMsgChat(_userList[fd], firstchan, fd, "JOIN", std::string(""));
+				std::cout << "add to existing chan " << blue << firstchan << reset << std::endl;
+				for (std::vector<int>::iterator it = users.begin(); it != users.end(); it++)
+					if ((*it) != fd)
+						joinMsgChat(_userList[fd], firstchan, (*it), "JOIN", std::string(""));
+			}
 		}
 		else { //chan must begin with & or #, cant contain spaces/ctrl G/comma
 			if ((firstchan.find_first_of("&#") == 0) && (firstchan.find_first_of(" ,\x07") == std::string::npos)) {
 				_channels.insert(std::pair<std::string, Channel>(firstchan, Channel(fd, firstchan, firstkey)));
 				joinMsgChat(_userList[fd], firstchan, fd, "JOIN", std::string(""));
-				std::cout << "Creating new chan : " << firstchan << std::endl;
+				std::cout << "Creating new chan : " << blue << firstchan << reset << std::endl;
 			}
 			else //bad chan name
 				send_to_fd("403", std::string(firstchan)+" :No such channel", _userList[fd], fd, false);
@@ -401,29 +395,31 @@ void ircServer::privmsgCommand(std::string & request, int fd) {
 	if (str[0] == ':') str = str.substr(1); //remove first char if ":"
 
 	while(!dests.empty()) {
+		bool disp = true;
 		if (dests.find(',')) //more than 1 chan
 			firstdest = dests.substr(0, dests.find(','));
 		else
 			firstdest = dests;
 		std::map<std::string, Channel >::iterator itchan = _channels.find(firstdest);
-		if (itchan != _channels.end())
-		{
+		if (itchan != _channels.end()) {
 			std::vector<int> users = itchan->second.getUsers();
-			for (std::vector<int>::iterator it = users.begin(); it != users.end(); it++)
+			for (std::vector<int>::iterator it = users.begin(); it != users.end(); it++) {
 				if ((*it) != fd) {
 					joinMsgChat(_userList[fd], firstdest, (*it), "PRIVMSG", str);
-					std::cout << "dest = " << firstdest << ", message =" << str << std::endl;
 				}
+				disp = false;
+			}
 		}
 		for (std::map<int, User>::iterator it = _userList.begin(); it != _userList.end(); it++)
 		{
 			if (it->second.getNickname() == firstdest)
 			{
 				joinMsgChat(_userList[fd], firstdest, it->first, "PRIVMSG", str);
-				std::cout << "dest = " << firstdest << ", message =" << str << std::endl;
+				disp = false;
 			}
 		}
-		send_to_fd("401", ":No such nick or channel name",_userList[fd],fd,false);
+		if (disp)
+			send_to_fd("401", ":No such nick or channel name",_userList[fd],fd,false);
 		if (dests.find(',') != std::string::npos) //more than 1 chan
 			dests = dests.substr(dests.find(',')+1);
 		else
@@ -433,17 +429,20 @@ void ircServer::privmsgCommand(std::string & request, int fd) {
 
 void ircServer::lusersCommand(std::string & request, int fd) {
 	if (check_unregistered(fd)) return;
+	(void)request;
 	send_to_fd("251",std::string(":There are ")+ getNbUsers() + " users, 0 servuces and 1 servers", _userList[fd], fd, false);
 	send_to_fd("254",std::string(getNbChannels()) + " :channels formed", _userList[fd], fd, false);
 	send_to_fd("255",std::string(":I have ")+ getNbUsers() + " users, 0 service and 0 servers", _userList[fd], fd, false);
 }
 
 void ircServer::motdCommand(std::string & request, int fd) {
+	(void)request;
 	if (check_unregistered(fd)) return;
 
 }
 
 void ircServer::helpCommand(std::string & request, int fd) {
+	(void)request;
 	std::string rep("Hello, need help  ? I will guide you on what to do and what you can do\n\n");
 	rep += "The recommended order of orders for registering a customer is as follows:\n";
 	rep += "PASS <password>\n";
@@ -471,13 +470,13 @@ void	ircServer::killCommand(std::string & request, int fd) {
 	if (check_unregistered(fd)) return;
 	std::string str = request.substr(strlen("KILL"));
 	std::stringstream 	stream(str);
-	std::string		target;
-	std::string		message;
+	std::string		target, message, tmp;
 	unsigned int	countParams = 0;
 	if (stream >> target) { ++countParams;}
 	if (stream >> message) { ++countParams;}
+	while (stream >> tmp) {++countParams;}
 
-	if (countParams < 2) {
+	if (countParams < 2 || (countParams > 2 && message[0] != ':')) {
 		send_to_fd("461", "KILL :Syntax error", _userList[fd], fd, false);
 		return;
 	}
@@ -490,7 +489,7 @@ void	ircServer::killCommand(std::string & request, int fd) {
 			std::string rep("ERROR : KILLed by ");
 			rep += _userList[fd].getNickname();
 			rep += ": ";
-			rep += str.substr(str.find_first_not_of(" ")).substr(str.find_first_of(" ")+1);
+			rep += str;
 			rep += "\n";
 			send(it->first, rep.c_str(), rep.length(), 0);
 			close_fd(it->first);
@@ -602,20 +601,18 @@ int	ircServer::check_unregistered(int fd){
 }
 
 void	ircServer::close_fd(int fd){
-	int i = 0;
-	_pollfds[i].fd *= -1;
-	for (; i < _nb_fds; i++)
-		if (_pollfds[i].fd == fd)
-			break;
-	if (i == _nb_fds - 1) { // last poll, just close and decr fd number
-		close(fd);
-	}
-	else { //switch the one to delete with the last one
-		_pollfds[i] = _pollfds[_nb_fds - 1];
-		close(fd);
-	}
-	_userList.erase(fd);
-	std::cout << "fd closed = " << fd << std::endl;
-	_nb_fds--;
+	for (int i = 1; i < _nb_fds; i++){
+		if (_pollfds[i].fd == fd) { //find which pollfds correspond to client's fd
+			_pollfds[i].fd *= -1;
+			if (i == _nb_fds - 1) // last poll, just close and decr fd number
+				close(fd);
+			else { //switch the one to delete with the last one
+				_pollfds[i] = _pollfds[_nb_fds - 1];
+				close(fd);
+			}
+			_userList.erase(fd);
+			_nb_fds--;
+			}
+		}
 }
 

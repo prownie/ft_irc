@@ -39,4 +39,16 @@ public:
 
 #endif
 
-//:rpichon!~username42@localhost QUIT :"WeeChat 3.2"
+/*
+PASS abcd
+NICK prownie1
+USER o o o o
+
+PASS abcd
+NICK prownie2
+USER o o o o
+
+PASS abcd
+NICK prownie3
+USER o o o o
+*/
