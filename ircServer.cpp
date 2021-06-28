@@ -61,7 +61,7 @@ void	ircServer::run() {
 	char buf[DATA_BUFFER];
 
 	while (1) {
-		std::cout << "\nCurrently listening to " << _nb_fds - 1 <<" clients \n" << std::endl;
+		std::cout << "\nCurrently listening to " << _nb_fds - 1 << " clients" << std::endl;
 		if (poll(_pollfds, _nb_fds, -1) == -1)
 			throw std::runtime_error("Error during poll\n");
 		for (int fd = 0; fd < (_nb_fds); fd++) {
@@ -198,6 +198,7 @@ void ircServer::nickCommand(std::string & request, int fd) {
 		{
 			std::string rep("ERROR :Access denied: Bad password?\n");
 			send(fd, rep.c_str(), rep.length(), 0);
+			std::cout << rep;
 			close_fd(fd);
 			return;
 		}
@@ -234,6 +235,7 @@ void ircServer::userCommand(std::string & request, int fd) {
 		{
 			std::string rep("ERROR :Access denied: Bad password?\n");
 			send(fd, rep.c_str(), rep.length(), 0);
+			std::cout << rep;
 			close_fd(fd);
 			return;
 		}
@@ -274,11 +276,12 @@ void ircServer::joinCommand(std::string & request, int fd) {
 		std::cout << "first chan = " << firstchan << std::endl;
 		std::map<std::string, Channel >::iterator itchan = _channels.find(firstchan);
 		if (itchan != _channels.end()) { //add to existing chan
+			std::vector<int> users = itchan->second.getUsers(); //check if user isnt already in
+			if (find(users.begin(), users.end(), fd) !=  users.end())
+				break;
 			itchan->second.addUser(fd);
 			joinMsgChat(_userList[fd], firstchan, fd, "JOIN", std::string(""));
 			std::cout << "add to existing chan" << std::endl;
-
-			std::vector<int> users = itchan->second.getUsers();
 			for (std::vector<int>::iterator it = users.begin(); it != users.end(); it++)
 				if ((*it) != fd)
 					joinMsgChat(_userList[fd], firstchan, (*it), "JOIN", std::string(""));
@@ -359,8 +362,9 @@ void ircServer::quitCommand(std::string & request, int fd) {
 			rep += "@localhost QUIT ";
 			rep += message;
 			rep += "\n";
-			std::cout << rep << std::endl;
+			std::cout << rep;
 			send((*contact), rep.c_str(), rep.length(), 0);
+			std::cout << rep;
 		}
 	}
 	close_fd(fd);
@@ -531,6 +535,7 @@ User const & user, int fd, bool dispRealName) const {
 	}
 	rep += "\n";
 	send(fd, rep.c_str(), rep.length(), 0);
+	std::cout << rep;
 	return;
 }
 
@@ -547,6 +552,7 @@ void	ircServer::joinMsgChat(User const & user, std::string channel, int fd, std:
 		rep += (" :" + channel);
 	rep += "\n";
 	send(fd, rep.c_str(), rep.length(), 0);
+	std::cout << rep;
 }
 
 int		ircServer::checkRegistration(int fd) {
@@ -568,7 +574,7 @@ int	ircServer::check_unregistered(int fd){
 		rep += _userList[fd].getNickname();
 		rep += " :Connection not registered\n";
 		send(fd, rep.c_str(), rep.length(), 0);
-
+		std::cout << rep;
 		return 1;
 	}
 	return 0;
