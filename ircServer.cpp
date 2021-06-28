@@ -114,7 +114,6 @@ void	ircServer::processRequest(std::string & request, int fd) {
 		&ircServer::quitCommand,
 		&ircServer::privmsgCommand,
 		&ircServer::lusersCommand,
-		&ircServer::motdCommand,
 		&ircServer::helpCommand,
 		&ircServer::killCommand
 		};
@@ -129,7 +128,7 @@ void	ircServer::processRequest(std::string & request, int fd) {
 }
 
 int	ircServer::whichCommand(std::string & request) {
-	const char* arr[] = {"PASS","NICK","USER","JOIN","OPER","QUIT","PRIVMSG","LUSERS", "MOTD", "HELP", "KILL"};
+	const char* arr[] = {"PASS","NICK","USER","JOIN","OPER","QUIT","PRIVMSG","LUSERS", "HELP", "KILL"};
 	std::istringstream iss(request);
 	std::string firstWord;
 	std::vector<std::string>::iterator it;
@@ -163,6 +162,7 @@ void ircServer::passCommand(std::string & request, int fd) {
 		return;
 	}
 	_userList[fd].setTmpPwd(str);
+	std::cout << "Password saved" << std::endl;
 }
 
 void ircServer::nickCommand(std::string & request, int fd) {
@@ -193,6 +193,7 @@ void ircServer::nickCommand(std::string & request, int fd) {
 		send(fd, rep.c_str(), rep.length(), 0);
 		return ;
 	}
+	std::cout << "Nickname saved" << std::endl;
 	if (_userList[fd].getNickname().compare("*") != 0 && !(_userList[fd].getUsername().empty())) {
 		if (!checkRegistration(fd))
 		{
@@ -227,6 +228,7 @@ void ircServer::userCommand(std::string & request, int fd) {
 	}
 	_userList[fd].setUsername(firstword);
 	_userList[fd].setRealname(oneWord.substr(1));
+	std::cout << "Username saved" << std::endl;
 	/*everything fine, answer to the client*/
 	if (_userList[fd].getNickname().compare("*") != 0 && !(_userList[fd].getUsername().empty())) {
 		if (!checkRegistration(fd))
@@ -274,7 +276,7 @@ void ircServer::joinCommand(std::string & request, int fd) {
 			if (find(users.begin(), users.end(), fd) ==  users.end()){
 				itchan->second.addUser(fd);
 				joinMsgChat(_userList[fd], firstchan, fd, "JOIN", std::string(""));
-				std::cout << "add to existing chan " << blue << firstchan << reset << std::endl;
+				std::cout << "Add to existing chan " << blue << firstchan << reset << std::endl;
 				for (std::vector<int>::iterator it = users.begin(); it != users.end(); it++)
 					if ((*it) != fd)
 						joinMsgChat(_userList[fd], firstchan, (*it), "JOIN", std::string(""));
@@ -435,12 +437,6 @@ void ircServer::lusersCommand(std::string & request, int fd) {
 	send_to_fd("255",std::string(":I have ")+ getNbUsers() + " users, 0 service and 0 servers", _userList[fd], fd, false);
 }
 
-void ircServer::motdCommand(std::string & request, int fd) {
-	(void)request;
-	if (check_unregistered(fd)) return;
-
-}
-
 void ircServer::helpCommand(std::string & request, int fd) {
 	(void)request;
 	std::string rep("Hello, need help  ? I will guide you on what to do and what you can do\n\n");
@@ -555,6 +551,8 @@ User const & user, int fd, bool dispRealName) const {
 	}
 	rep += "\n";
 	send(fd, rep.c_str(), rep.length(), 0);
+	if (code.compare("001") != 0 &&	code.compare("251") != 0 &&
+		code.compare("254") != 0 && code.compare("255") != 0)
 	std::cout << rep;
 	return;
 }
@@ -580,9 +578,9 @@ int		ircServer::checkRegistration(int fd) {
 		return 0;
 	std::cout << "User " << _userList[fd].getNickname() << " registered !" << std::endl;
 	send_to_fd("001", ":Welcome to our FT_IRC project !", _userList[fd], fd, false);
-	send_to_fd("251",std::string(":There are ")+ getNbUsers() + " users, 0 servuces and 1 servers", _userList[fd], fd, false);
+	send_to_fd("251",std::string(":There are ")+ getNbUsers() + " users, 0 services and 1 servers", _userList[fd], fd, false);
 	send_to_fd("254",std::string(getNbChannels()) + " :channels formed", _userList[fd], fd, false);
-	send_to_fd("255",std::string(":I have ")+ getNbUsers() + " users, 0 service and 0 servers", _userList[fd], fd, false);
+	send_to_fd("255",std::string(":I have ")+ getNbUsers() + " users, 0 services and 0 servers", _userList[fd], fd, false);
 	return 1;
 }
 
@@ -615,4 +613,3 @@ void	ircServer::close_fd(int fd){
 			}
 		}
 }
-
