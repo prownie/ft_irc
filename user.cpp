@@ -14,6 +14,9 @@ User::User(User const & src) {
 	_rights = src._rights;
 	_realname = src._realname;
 	_tmpPassword = src._tmpPassword;
+	_tmpRequest = src._tmpRequest;
+	_operName = src._operName;
+	_isRegistered = src._isRegistered;
 	std::cout << "User created by assignation" << std::endl;
 }
 
